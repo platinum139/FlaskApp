@@ -131,6 +131,14 @@ def delete_student(id):
     student.delete()
     return Response(status=200)
 
+@app.route('/api/health-check/ok', methods = ['GET'])
+def health_check_ok():
+    return Response(status=200)
+
+@app.route('/api/health-check/bad', methods = ['GET'])
+def health_check_bad():
+    return Response(status=500)
+
 if __name__ == '__main__':
     if not database_exists(engine.url):
         create_database(engine.url)

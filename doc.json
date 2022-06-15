@@ -36,6 +36,18 @@
             "path": "/api/students/delete/<int:id>",
             "description": "Delete student",
             "status_code": ["200 - succesful deletion", "404 - id is not found"]
+        },
+        {
+            "method": "GET",
+            "path": "/api/health-check/ok",
+            "description": "Healthcheck OK",
+            "status_code": ["200"]
+        },
+        {
+            "method": "GET",
+            "path": "/api/health-check/bad",
+            "description": "Healthcheck bad",
+            "status_code": ["500"]
         }
     ]
 }
