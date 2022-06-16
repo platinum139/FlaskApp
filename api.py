@@ -1,7 +1,7 @@
 from asyncio.proactor_events import _ProactorBasePipeTransport
 import os
 
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, Response
 from flask_sqlalchemy import SQLAlchemy
 import dotenv
 from sqlalchemy import create_engine
@@ -61,7 +61,9 @@ def home():
 
 @app.route('/api', methods = ['GET'])
 def api_main():
-    return jsonify('Hello, World!'), 200
+    f = open("doc.json", "r")
+    doc = f.read()
+    return Response(doc, mimetype='application/json'), 200
 
 @app.route('/api/students', methods=['GET'])
 def get_all_students():
@@ -90,6 +92,52 @@ def add_student():
     serializer = StudentSchema()
     data = serializer.dump(new_student)
     return jsonify(data), 201
+
+@app.route('/api/students/modify/<int:id>', methods = ['PATCH'])
+def modify_student(id):
+    json_data = request.get_json()
+    student = Student.get_by_id(id)
+    if json_data.get('name'):
+        student.name = json_data.get('name')
+    if json_data.get('email'):
+        student.email = json_data.get('email')
+    if json_data.get('age'):
+        student.age = json_data.get('age')
+    if json_data.get('cellphone'):
+        student.cellphone = json_data.get('cellphone')
+    student.save()
+    serializer = StudentSchema()
+    data = serializer.dump(student)
+    return jsonify(data), 200
+
+@app.route('/api/students/change/<int:id>', methods = ['PUT'])
+def change_student(id):
+    json_data = request.get_json()
+    student = Student.get_by_id(id)
+    student.name = json_data.get('name')
+    student.email = json_data.get('email')
+    student.age = json_data.get('age')
+    student.cellphone = json_data.get('cellphone')
+    if not (student.name and student.email and student.age and student.cellphone):
+        return jsonify({"error": "name, email, age and cellphone fields should be provided"}), 400
+    student.save()
+    serializer = StudentSchema()
+    data = serializer.dump(student)
+    return jsonify(data), 200
+
+@app.route('/api/students/delete/<int:id>', methods = ['DELETE'])
+def delete_student(id):
+    student = Student.get_by_id(id)
+    student.delete()
+    return Response(status=200)
+
+@app.route('/api/health-check/ok', methods = ['GET'])
+def health_check_ok():
+    return Response(status=200)
+
+@app.route('/api/health-check/bad', methods = ['GET'])
+def health_check_bad():
+    return Response(status=500)
 
 if __name__ == '__main__':
     if not database_exists(engine.url):
