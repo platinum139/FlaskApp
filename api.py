@@ -61,9 +61,9 @@ def home():
 
 @app.route('/api', methods = ['GET'])
 def api_main():
-    f = open("doc.json", "r")
-    doc = f.read()
-    return Response(doc, mimetype='application/json'), 200
+    with open("doc.json", mode="r") as file:
+        doc = file.read()
+        return Response(doc, mimetype='application/json'), 200
 
 @app.route('/api/students', methods=['GET'])
 def get_all_students():
