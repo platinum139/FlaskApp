@@ -1,4 +1,3 @@
-from asyncio.proactor_events import _ProactorBasePipeTransport
 import os
 
 from flask import Flask, jsonify, request, Response
@@ -15,7 +14,10 @@ db_pass = os.environ.get('DB_PASSWORD')
 db_hostname = os.environ.get('DB_HOSTNAME')
 db_name = os.environ.get('DB_NAME')
 
-DB_URI = 'mysql+pymysql://{db_username}:{db_password}@{db_host}/{database}'.format(db_username=db_user, db_password=db_pass, db_host=db_hostname, database=db_name)
+base = 'mysql+pymysql://{db_username}:{db_password}@{db_host}/{database}'
+DB_URI = base.format(
+    db_username=db_user, db_password=db_pass,
+    db_host=db_hostname, database=db_name)
 
 engine = create_engine(DB_URI, echo=True)
 
@@ -23,6 +25,7 @@ app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = DB_URI
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
+
 
 class Student(db.Model):
     __tablename__ = "student"
@@ -48,6 +51,7 @@ class Student(db.Model):
         db.session.delete(self)
         db.session.commit()
 
+
 class StudentSchema(Schema):
     id = fields.Integer()
     name = fields.Str()
@@ -55,15 +59,18 @@ class StudentSchema(Schema):
     age = fields.Integer()
     cellphone = fields.Str()
 
-@app.route('/', methods = ['GET'])
+
+@app.route('/', methods=['GET'])
 def home():
     return '<p>Hello from students API!</p>', 200
 
-@app.route('/api', methods = ['GET'])
+
+@app.route('/api', methods=['GET'])
 def api_main():
     with open("doc.json", mode="r") as file:
         doc = file.read()
         return Response(doc, mimetype='application/json'), 200
+
 
 @app.route('/api/students', methods=['GET'])
 def get_all_students():
@@ -72,18 +79,20 @@ def get_all_students():
     response = student_list.dump(students)
     return jsonify(response), 200
 
-@app.route('/api/students/get/<int:id>', methods = ['GET'])
+
+@app.route('/api/students/get/<int:id>', methods=['GET'])
 def get_student(id):
     student_info = Student.get_by_id(id)
     serializer = StudentSchema()
     response = serializer.dump(student_info)
     return jsonify(response), 200
 
-@app.route('/api/students/add', methods = ['POST'])
+
+@app.route('/api/students/add', methods=['POST'])
 def add_student():
     json_data = request.get_json()
     new_student = Student(
-        name= json_data.get('name'),
+        name=json_data.get('name'),
         email=json_data.get('email'),
         age=json_data.get('age'),
         cellphone=json_data.get('cellphone')
@@ -93,7 +102,8 @@ def add_student():
     data = serializer.dump(new_student)
     return jsonify(data), 201
 
-@app.route('/api/students/modify/<int:id>', methods = ['PATCH'])
+
+@app.route('/api/students/modify/<int:id>', methods=['PATCH'])
 def modify_student(id):
     json_data = request.get_json()
     student = Student.get_by_id(id)
@@ -110,7 +120,8 @@ def modify_student(id):
     data = serializer.dump(student)
     return jsonify(data), 200
 
-@app.route('/api/students/change/<int:id>', methods = ['PUT'])
+
+@app.route('/api/students/change/<int:id>', methods=['PUT'])
 def change_student(id):
     json_data = request.get_json()
     student = Student.get_by_id(id)
@@ -118,26 +129,32 @@ def change_student(id):
     student.email = json_data.get('email')
     student.age = json_data.get('age')
     student.cellphone = json_data.get('cellphone')
-    if not (student.name and student.email and student.age and student.cellphone):
-        return jsonify({"error": "name, email, age and cellphone fields should be provided"}), 400
+    if not (student.name and student.email and
+            student.age and student.cellphone):
+        err_msg = "name, email, age and cellphone fields should be provided"
+        return jsonify({"error": err_msg}), 400
     student.save()
     serializer = StudentSchema()
     data = serializer.dump(student)
     return jsonify(data), 200
 
-@app.route('/api/students/delete/<int:id>', methods = ['DELETE'])
+
+@app.route('/api/students/delete/<int:id>', methods=['DELETE'])
 def delete_student(id):
     student = Student.get_by_id(id)
     student.delete()
     return Response(status=200)
 
-@app.route('/api/health-check/ok', methods = ['GET'])
-def health_check_ok():
-    return Response(status=200)
 
-@app.route('/api/health-check/bad', methods = ['GET'])
+@app.route('/api/health-check/ok', methods=['GET'])
+def health_check_ok():
+    return jsonify({"status": "server is running"}), 200
+
+
+@app.route('/api/health-check/bad', methods=['GET'])
 def health_check_bad():
     return Response(status=500)
+
 
 if __name__ == '__main__':
     if not database_exists(engine.url):
