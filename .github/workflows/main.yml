@@ -1,0 +1,99 @@
+name: CI / CD
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - ci_cd
+
+env:
+  REGISTRY: platinum139/flaskapp
+
+jobs:
+  lint:
+    name: Linter
+    runs-on: ubuntu-latest
+    steps:
+      - name: Git checkout
+        uses: actions/checkout@v3
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Run flake8
+        uses: py-actions/flake8@v2
+  
+  build_and_push:
+    name: Build and push docker image
+    runs-on: ubuntu-latest
+    needs: lint
+    outputs:
+      commit_hash: ${{ steps.commit_hash.outputs.commit_hash }}
+    steps:
+      - name: Git checkout
+        uses: actions/checkout@v3
+
+      - id: commit_hash
+        run: echo "::set-output name=commit_hash::${GITHUB_SHA::7}"
+
+      - name: Login to DockerHub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      
+      - name: Build and push
+        uses: docker/build-push-action@v3
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}:${{ steps.commit_hash.outputs.commit_hash }}
+
+  deploy:
+    strategy:
+      matrix:
+        host: [3.19.215.127, 3.16.136.184]
+    name: Deploy on servers
+    runs-on: ubuntu-latest
+    needs: build_and_push
+    env:
+      USERNAME: ubuntu
+      DOCKER_USER: ${{ secrets.DOCKER_USER }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+    steps:
+      - name: Deploy to EC2 instances via SSH
+        uses: appleboy/ssh-action@v0.1.4
+        with:
+          host: ${{ matrix.host }}
+          username: ${{ env.USERNAME }}
+          key: ${{ secrets.AWS_KEY }}
+          envs: DOCKER_USER, DOCKERHUB_TOKEN
+          port: 22
+          script: |
+
+            # add image tag to env vars for docker-compose.yml
+            export TAG=${{ needs.build_and_push.outputs.commit_hash }}
+
+            # login docker
+            echo $DOCKERHUB_TOKEN | docker login -u $DOCKER_USER --password-stdin
+
+            # run containers
+            docker compose -f ~/flaskapp/docker-compose.yml down
+            docker compose -f ~/flaskapp/docker-compose.yml up -d
+
+            # logout docker
+            docker logout
+  
+  report:
+    name: Make report
+    runs-on: ubuntu-latest
+    needs: deploy
+    steps:
+      - name: Curl 3.19.215.127
+        run: curl -i -X GET http://3.19.215.127:8000/api/health-check/ok
+
+      - name: Curl 3.16.136.184
+        run: curl -i -X GET http://3.16.136.184:8000/api/health-check/ok
