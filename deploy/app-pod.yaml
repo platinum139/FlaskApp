@@ -1,0 +1,55 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: flaskapp-pod
+  namespace: flaskapp
+  labels:
+    name: flaskapp-pod
+spec:
+  imagePullSecrets:
+  - name: "regcred"
+  containers:
+  - name: flaskapp
+    image: platinum139/flaskapp:3f6026e
+    imagePullPolicy: Always
+    resources:
+      limits:
+        cpu: "1"
+        memory: "512Mi"
+    ports:
+      - containerPort: 8000
+        name: flask-port
+    command: ["python3"]
+    args: ["api.py"]
+    env:
+    - name: FLASK_APP
+      value: api.py
+    - name: FLASK_ENV
+      value: development
+    - name: DB_USERNAME
+      value: devops
+    - name: DB_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: flaskapp-secret
+          key: mysql_password
+    - name: DB_NAME
+      valueFrom:
+        configMapKeyRef:
+          name: flaskapp-configmap
+          key: mysql_database
+    - name: DB_HOSTNAME
+      value: mysql-service
+    startupProbe:
+      httpGet:
+        path: /api/health-check/ok
+        port: flask-port
+      failureThreshold: 3
+      periodSeconds: 3
+    readinessProbe:
+      httpGet:
+        path: /api/health-check/ok
+        port: flask-port
+      failureThreshold: 3
+      periodSeconds: 3
+      

@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: flaskapp-configmap
+  namespace: flaskapp
+data:
+  mysql_database: student

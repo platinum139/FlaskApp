@@ -1,0 +1,61 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mysql-statefulset
+  namespace: flaskapp
+spec:
+  selector:
+    matchLabels:
+      app: mysql
+  serviceName: mysql
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        app: mysql
+    spec:
+      containers:
+      - name: mysql
+        image: mysql:8
+        imagePullPolicy: Always
+        resources:
+          requests:
+            cpu: "200m"
+            memory: "512Mi"
+          limits:
+            cpu: "300m"
+            memory: "512Mi"
+        ports:
+          - containerPort: 3306
+            name: mysql-port
+        volumeMounts:
+          - name: mysql-persistent-storage
+            mountPath: /var/lib/mysql
+        env:
+          - name: MYSQL_USER
+            value: devops
+          - name: MYSQL_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: flaskapp-secret
+                key: mysql_password
+          - name: MYSQL_ROOT_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: flaskapp-secret
+                key: mysql_root_password
+          - name: MYSQL_DATABASE
+            valueFrom:
+              configMapKeyRef:
+                name: flaskapp-configmap
+                key: mysql_database
+  volumeClaimTemplates:
+  - metadata:
+      name: mysql-persistent-storage
+      namespace: flaskapp
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: "1Gi"
